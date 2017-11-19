@@ -6,7 +6,7 @@ import org.mariuszgromada.math.mxparser.Function;
 public class Broiden extends Method {
 
     public Broiden() {
-        title = "Метод Бройдена";
+        title = "метод Бройдена";
     }
 
     @Override
@@ -19,6 +19,9 @@ public class Broiden extends Method {
         Jacobian jacob = new Jacobian(nlse);
         FuncMatrix F = new FuncMatrix(nlse);
         SimpleMatrix aprev;
+        if(Jacobian.isSymbolComputing())
+            if(jacob.symbolDerivative == null)
+                return new double[5][5];
         SimpleMatrix anext = jacob.evalJacobian(xnext);
 
         while (true) {

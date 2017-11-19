@@ -5,7 +5,7 @@ import org.mariuszgromada.math.mxparser.Function;
 
 class Newton extends Method {
     public Newton() {
-        title = "Метод Ньютона";
+        title = "метод Ньютона";
     }
 
     @Override
@@ -17,7 +17,9 @@ class Newton extends Method {
         Vector xnext = new Vector(x_0);
         Jacobian jacob = new Jacobian(nlse);
         FuncMatrix F = new FuncMatrix(nlse);
-
+        if(Jacobian.isSymbolComputing())
+            if(jacob.symbolDerivative == null)
+                return new double[5][5];
         do {
             xprev = new Vector(xnext);
             xnext = new Vector(

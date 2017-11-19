@@ -17,6 +17,8 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import org.ejml.data.DenseMatrix64F;
+import org.ejml.simple.SimpleMatrix;
 import org.mariuszgromada.math.mxparser.Function;
 import org.scilab.forge.jlatexmath.TeXConstants;
 import org.scilab.forge.jlatexmath.TeXFormula;
@@ -31,13 +33,20 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
+        Method[] methods = new Method[2];
+
+        methods[0] = new Newton();
+        methods[1] = new Broiden();
+
         Button startBtn = new Button("Посчитать!");
+        Button enterJacobian = new Button("Ввести якобиан");
         Button addBtn = new Button("+");
         Button removeBtn = new Button("-");
 
         Font mainFont = Font.font("Monaco", FontWeight.BOLD, 16);
         startBtn.setFont(mainFont);
         addBtn.setFont(mainFont);
+        enterJacobian.setFont(mainFont);
         removeBtn.setFont(mainFont);
 
 
@@ -57,6 +66,7 @@ public class Main extends Application {
         paneForFields.setFitToHeight(true);
         MyTextField epsMethod = new MyTextField();
         MyTextField stepDiff = new MyTextField();
+        MyTextField doth = new MyTextField();
         epsMethod.setText("0.001");
         stepDiff.setText("0.05");
         hbForSc.getChildren().addAll(bracket, paneForFields);
@@ -71,27 +81,32 @@ public class Main extends Application {
         VBox vbox = new VBox();
 
         vbox.setAlignment(Pos.CENTER);
-        vbox.setSpacing(5);
+        vbox.setSpacing(10);
         vbox.setPadding(new Insets(5,5,5,5));
         vbox.getChildren().addAll(hbForSc);
         HBox boxForAddBtn = new HBox();
         boxForAddBtn.setAlignment(Pos.CENTER_RIGHT);
         boxForAddBtn.setSpacing(5);
-        boxForAddBtn.getChildren().addAll(removeBtn, addBtn);
+        boxForAddBtn.getChildren().addAll(enterJacobian, removeBtn, addBtn);
         epsMethod.setMaxWidth(100);
         epsMethod.setPrefWidth(100);
         epsMethod.setMinWidth(100);
         stepDiff.setMaxWidth(100);
         stepDiff.setPrefWidth(100);
         stepDiff.setMinWidth(100);
+        doth.setMaxWidth(100);
+        doth.setPrefWidth(100);
+        doth.setMinWidth(100);
+        doth.setText("x,y,z");
 
         HBox epses = new HBox();
 
         epses.setAlignment(Pos.CENTER);
         epses.setSpacing(1);
 
-        epses.getChildren().addAll(new MyLabel("Eps метода:"), epsMethod,
-                new MyLabel("Шаг дифференцирования:"), stepDiff);
+        epses.getChildren().addAll(new MyLabel("x_0 = "), doth,
+                new MyLabel("Eps метода:"), epsMethod,
+                new MyLabel("Шаг дифф.:"), stepDiff);
         indic.setVisible(false);
         vbox.getChildren().addAll(boxForAddBtn, epses, indic, startBtn);
 
@@ -120,24 +135,19 @@ public class Main extends Application {
                     return new Task<Void>() {
                         @Override
                         protected Void call() throws Exception {
-
-                            Method[] methods = new Method[2];
+                            String[] tempDoth = doth.getText().split(",");
+                            double[] nDoth = new double[tempDoth.length];
+                            for(int r = 0; r < tempDoth.length; r++)
+                                nDoth[r] = Double.parseDouble(tempDoth[r]);
                             Method.eps = Double.parseDouble(epsMethod.getText());
                             Method.h = Double.parseDouble(stepDiff.getText());
-
-                            methods[0] = new Newton();
-                            methods[1] = new Broiden();
-
 
                             Function[] nlse =new Function[tFlds.size()];
 
                             for(int y = 0; y < tFlds.size(); y++)
                                 nlse[y] = new Function(tFlds.get(y).getText().toString());
-//                                   new Function("f(x,y,z) = 2*cos(y)"),
-//                                   new Function("f(x,y,z) = 3*x^2+7*y*z"),
-//                                   new Function("f(x,y,z) = 1*x^2+7*y*z"),
                             ArrayList<Image> timg = new ArrayList<>();
-                            Vector x_0 = new Vector(new double[] {-6, 11, 2.5});
+                            Vector x_0 = new Vector(nDoth);
                             for (Function f : nlse) {
                                 String strFormula = (f.getFunctionExpressionString()).replaceAll("\\*", "");
                                 strFormula += "=0";
@@ -147,7 +157,7 @@ public class Main extends Application {
                                         java.awt.Color.BLACK, java.awt.Color.WHITE), null));
                             }
 
-                            for(int i = 0; i < methods.length; i++) {
+                            for(int i = 0; i < methods.length * 2; i++) {
                                 ArrayList<ImageView> formula = new ArrayList<>();
                                 for (Image img : timg) {
                                     formula.add(new ImageView(img));
@@ -158,7 +168,7 @@ public class Main extends Application {
                                 v.setSpacing(20);
                                 v.setAlignment(Pos.CENTER);
                                 double[][] answer;
-                                answer = methods[i].compute(x_0, nlse);
+                                answer = methods[i % 2].compute(x_0, nlse);
 
                                 HBox pt = new HBox();
                                 VBox p = new VBox();
@@ -177,9 +187,12 @@ public class Main extends Application {
                                 sc.setFitToWidth(true);
                                 sc.setFitToHeight(true);
                                 tabs.setPrefWidth(1200);
-                                tabs.getTabs().add(new Tab(methods[i].title, sc));
+                                tabs.getTabs().add(new Tab(Jacobian.title + methods[i%2].title, sc));
+                                if(i == 1)
+                                    Jacobian.setSymbolComputing(true);
                             }
-                        return null;
+                            Jacobian.setSymbolComputing(false);
+                            return null;
                         }
                     };
                 }
@@ -202,6 +215,59 @@ public class Main extends Application {
                 stage.sizeToScene();
 
             });
+        });
+
+        enterJacobian.setOnMouseClicked(e -> {
+            Stage oStage = new Stage();
+            VBox vPane = new VBox();
+            vPane.setSpacing(15);
+            ScrollPane scPane = new ScrollPane();
+            GridPane outputMatrix = new GridPane();
+            outputMatrix.setAlignment(Pos.CENTER);
+            outputMatrix.setPadding(new Insets(                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 10));
+            outputMatrix.setVgap(10);
+            outputMatrix.setHgap(10);
+            Function f1 =  new Function(tFlds.get(0).getText().toString());
+            int NUM_ROW =tFlds.size();
+            int NUM_COL= f1.getArgumentsNumber();
+
+            TextField[][] input = new TextField[NUM_ROW][NUM_COL];
+            String ftext = f1.getFunctionName() + "(";
+            for(int k = 0; k < f1.getArgumentsNumber(); k++)
+                if(k == f1.getArgumentsNumber()-1)
+                    ftext += f1.getArgument(k).getArgumentName();
+                else
+                    ftext += f1.getArgument(k).getArgumentName()+",";
+            ftext += ")=";
+            for(int i = 0; i < NUM_ROW; i++)
+                for(int j = 0; j < NUM_COL; j++) {
+                    input[i][j] = new TextField(ftext);
+                    outputMatrix.add(input[i][j], j, i);
+                }
+            scPane.setContent(outputMatrix);
+            vPane.setAlignment(Pos.CENTER);
+            Label txt = new Label("Аналиитически заданный якобиан");
+            txt.setFont(new Font("Monaco", 30));
+            Button closeBtn = new Button("Сохранить");
+            closeBtn.setFont(new Font("Monaco", 30));
+            closeBtn.setOnMouseClicked(event -> {
+                Jacobian.symbolDerivative = new Function[NUM_COL*NUM_ROW];
+                for(int i = 0; i < NUM_ROW; i++)
+                    for(int j = 0; j < NUM_COL; j++) {
+                        Jacobian.symbolDerivative[i*NUM_COL + j] =
+                                new Function(input[i][j].getText());
+                        System.out.println(input[i][j].getText());
+                    }
+                oStage.close();
+            });
+            HBox localHBox = new HBox(scPane);
+            localHBox.setAlignment(Pos.CENTER);
+            vPane.getChildren().addAll(txt, localHBox, closeBtn);
+
+            Scene sc = new Scene(vPane, 800, 500);
+            oStage.setScene(sc);
+            oStage.show();
+
         });
 
         vbox.setMinWidth(600);
