@@ -18,13 +18,17 @@ public class Broiden extends Method {
         Vector xnext = new Vector(x_0);
         Jacobian jacob = new Jacobian(nlse);
         FuncMatrix F = new FuncMatrix(nlse);
+        int dangerCounter = 0;
+
         SimpleMatrix aprev;
         if(Jacobian.isSymbolComputing())
             if(jacob.symbolDerivative == null)
-                return new double[5][5];
+                return null;
         SimpleMatrix anext = jacob.evalJacobian(xnext);
+        answer.append(xnext);
 
         while (true) {
+            dangerCounter++;
             xprev = new Vector(xnext);
             aprev = new SimpleMatrix(anext);
             SimpleMatrix sk = aprev.pseudoInverse().mult(F.calculate(xprev)).scale(-1);
@@ -38,6 +42,8 @@ public class Broiden extends Method {
                     mult(sk.transpose())).
                     scale(1.0 / (sk.transpose().
                             mult(sk).elementSum())));
+            if(dangerCounter == 500)
+                return getArray(answer.toString());
             answer.append(xnext);
         }
     }

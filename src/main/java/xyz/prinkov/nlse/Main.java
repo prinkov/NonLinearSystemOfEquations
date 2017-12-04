@@ -15,6 +15,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.FileChooser;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.ejml.data.DenseMatrix64F;
@@ -23,7 +24,12 @@ import org.mariuszgromada.math.mxparser.Function;
 import org.scilab.forge.jlatexmath.TeXConstants;
 import org.scilab.forge.jlatexmath.TeXFormula;
 
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 
 public class Main extends Application {
@@ -97,7 +103,7 @@ public class Main extends Application {
         doth.setMaxWidth(100);
         doth.setPrefWidth(100);
         doth.setMinWidth(100);
-        doth.setText("x,y,z");
+        doth.setText("x;y;z");
 
         HBox epses = new HBox();
 
@@ -114,14 +120,11 @@ public class Main extends Application {
         addBtn.setOnMouseClicked(e-> {
             tFlds.add(new MyTextField());
             boxForFields.getChildren().add(tFlds.get(tFlds.size()-1));
-            System.out.println(tFlds.size());
 
         });
-        System.out.println(tFlds.size());
         removeBtn.setOnMouseClicked(e -> {
             boxForFields.getChildren().remove(tFlds.get(tFlds.size()-1));
             tFlds.remove(tFlds.size()-1);
-            System.out.println(tFlds.size());
 
         });
 
@@ -135,7 +138,7 @@ public class Main extends Application {
                     return new Task<Void>() {
                         @Override
                         protected Void call() throws Exception {
-                            String[] tempDoth = doth.getText().split(",");
+                            String[] tempDoth = doth.getText().split(";");
                             double[] nDoth = new double[tempDoth.length];
                             for(int r = 0; r < tempDoth.length; r++)
                                 nDoth[r] = Double.parseDouble(tempDoth[r]);
@@ -179,17 +182,55 @@ public class Main extends Application {
                                 brack.setFont(Font.font("Areal", FontWeight.LIGHT, 75
                                         * formula.size()));
                                 pt.getChildren().addAll(brack, p);
+                                if(answer != null) {
+                                    Button saveTable = new Button("Сохранить таблицу");
 
-                                v.getChildren().addAll(pt,
-                                        getTable(nlse, answer));
-                                ScrollPane sc = new ScrollPane();
-                                sc.setContent(v);
-                                sc.setFitToWidth(true);
-                                sc.setFitToHeight(true);
-                                tabs.setPrefWidth(1200);
-                                tabs.getTabs().add(new Tab(Jacobian.title + methods[i%2].title, sc));
+                                    saveTable.setOnMouseClicked(ev -> {
+                                        FileChooser fileChooser = new FileChooser();
+                                        fileChooser.setTitle("Сохранить таблицу");
+                                        File file = fileChooser.showSaveDialog(stage);
+                                        if (file != null) {
+                                            try {
+
+                                                FileWriter writer = new FileWriter(file.getAbsolutePath());
+                                                for (int j = 0; j < answer.length; j++) {
+                                                    for (int k = 0; k < answer[0].length; k++)
+                                                        writer.append(String.valueOf(Math.ceil(answer[j][k]*100000000)/100000000.0)+",");
+                                                    String fVal = "(";
+                                                    for(int d = 0; d < nlse.length; d ++)
+                                                        if(d == nlse.length - 1)
+                                                            fVal += (Math.ceil(nlse[d].calculate(answer[j]) * 100000) / 100000.0);
+                                                        else
+                                                            fVal += (Math.ceil(nlse[d].calculate(answer[j]) * 100000) / 100000.0)+"; ";
+                                                    fVal += ")";
+                                                    writer.append(fVal+"\n");
+                                                }
+                                                writer.close();
+                                                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                                                alert.setTitle("Сохранение файла");
+                                                alert.setHeaderText(null);
+                                                alert.setContentText("Таблица успешно сохранена в файл " + file.getAbsolutePath());
+
+                                                alert.showAndWait();
+
+                                            } catch(Exception ex) {
+                                                ex.printStackTrace();
+                                            }
+                                        }
+
+                                            });
+                                    v.getChildren().addAll(pt,
+                                            getTable(nlse, answer), saveTable);
+                                    ScrollPane sc = new ScrollPane();
+                                    sc.setContent(v);
+                                    sc.setFitToWidth(true);
+                                    sc.setFitToHeight(true);
+                                    tabs.setPrefWidth(1200);
+                                    tabs.getTabs().add(new Tab(Jacobian.title + methods[i % 2].title, sc));
+                                }
                                 if(i == 1)
                                     Jacobian.setSymbolComputing(true);
+
                             }
                             Jacobian.setSymbolComputing(false);
                             return null;
@@ -246,17 +287,17 @@ public class Main extends Application {
                 }
             scPane.setContent(outputMatrix);
             vPane.setAlignment(Pos.CENTER);
-            Label txt = new Label("Аналиитически заданный якобиан");
+            Label txt = new Label("Аналитически заданный якобиан");
             txt.setFont(new Font("Monaco", 30));
             Button closeBtn = new Button("Сохранить");
-            closeBtn.setFont(new Font("Monaco", 30));
+            closeBtn.setFont(new Font("Monaco", 16));
             closeBtn.setOnMouseClicked(event -> {
                 Jacobian.symbolDerivative = new Function[NUM_COL*NUM_ROW];
                 for(int i = 0; i < NUM_ROW; i++)
                     for(int j = 0; j < NUM_COL; j++) {
                         Jacobian.symbolDerivative[i*NUM_COL + j] =
                                 new Function(input[i][j].getText());
-                        System.out.println(input[i][j].getText());
+
                     }
                 oStage.close();
             });
@@ -274,7 +315,7 @@ public class Main extends Application {
         vbox.setMinHeight(300);
         vbox.setPadding(new Insets(10,10,10,10));
         Scene scene = new Scene(vbox);
-        stage.setTitle("Методы оптимизации нулевого порядка");
+        stage.setTitle("Решение систем нелинейных уравнений");
         stage.setScene(scene);
         stage.sizeToScene();
         stage.show();
@@ -351,9 +392,8 @@ public class Main extends Application {
             Font mainFont = Font.font("Monaco", FontWeight.BOLD, 16);
             setFont(mainFont);
 
-            setText("f(x,y,z) = 2*cos(y)");
+            setText("f(x,y,z) =");
 
-            setPromptText("f(x,y) = x+y");
             setFocusTraversable(false);
         }
     }
