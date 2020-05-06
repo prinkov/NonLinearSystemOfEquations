@@ -9,8 +9,6 @@ public class FuncMatrix {
         this.functions = functions;
     }
 
-
-
     public SimpleMatrix calculate(Vector vals) {
         SimpleMatrix matrix = new SimpleMatrix(functions.length,
                 1);
